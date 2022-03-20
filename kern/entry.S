@@ -101,4 +101,3 @@ bootstack:
 	.space		KSTKSIZE
 	.globl		bootstacktop   
 bootstacktop:
-
