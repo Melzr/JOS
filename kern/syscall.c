@@ -159,7 +159,24 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	// LAB 5: Your code here.
 	// Remember to check whether the user has supplied us with a good
 	// address!
-	panic("sys_env_set_trapframe not implemented");
+
+	// el Trapframe recibido como parámetro apunta a memoria de usuario válida
+	user_mem_assert(curenv, tf, sizeof(struct Trapframe), PTE_P | PTE_U);
+
+	struct Env *env;
+	if (envid2env(envid, &env, 1) < 0)
+		return -E_BAD_ENV;
+
+	env->env_tf = *tf;
+
+	// el proceso no va a salir del ring 3 (esto es, que el CPL de todos sus segmentos es 3)
+	env->env_tf.tf_cs |= 3;
+
+	// sale con interrupciones habilitadas e IOPL a 0
+	env->env_tf.tf_eflags |= FL_IF;
+	env->env_tf.tf_eflags |= FL_IOPL_0;
+
+	return 0;
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -509,6 +526,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 	case SYS_env_set_pgfault_upcall:
 		return sys_env_set_pgfault_upcall(a1, (void *) a2);
+
+	case SYS_env_set_trapframe:
+		return sys_env_set_trapframe((envid_t) a1,
+		                             (struct Trapframe *) a2);
 
 	default:
 		return -E_INVAL;
