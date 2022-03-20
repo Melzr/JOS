@@ -40,7 +40,7 @@ def test_yield():
 
 @test(1)
 def test_spin0():
-    r.user_test("spin0", timeout=0.5)
+    r.user_test("spin0", timeout=2)
     r.match(E(".00000000. new env $E1"),
             E(".00000000. new env $E2"),
             E("I am $E1 and my spin will go on #1"),

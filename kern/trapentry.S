@@ -68,7 +68,7 @@ TRAPHANDLER_NOEC(trap_machine_check, T_MCHK)
 TRAPHANDLER_NOEC(trap_simd , T_SIMDERR)
 TRAPHANDLER_NOEC(trap_syscall, T_SYSCALL)
 TRAPHANDLER_NOEC(trap_default, T_DEFAULT)
-
+TRAPHANDLER_NOEC(trap_timer, IRQ_OFFSET+IRQ_TIMER)
 
 /*
  * Lab 3: Your code here for _alltraps
