@@ -7,6 +7,7 @@ kern/pmap.c
 kern/sched.c
 kern/syscall.c
 kern/trap.c
+kern/init.c
 lib/file.c
 lib/fork.c
 lib/ipc.c
