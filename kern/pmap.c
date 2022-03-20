@@ -110,7 +110,7 @@ boot_alloc(uint32_t n)
 	if (n != 0)
 		nextfree = ROUNDUP(nextfree + n, PGSIZE);
 
-	if (nextfree > (char *) (KERNBASE + (npages * PGSIZE)))
+	if (PADDR(nextfree) > npages * PGSIZE)
 		panic("No se puede reservar la memoria requerida");
 
 	return result;
@@ -164,7 +164,7 @@ mem_init(void)
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
 	envs = (struct Env *) boot_alloc(NENV * sizeof(struct Env));
-	memset(envs, 0, sizeof(struct Env));
+	memset(envs, 0, NENV * sizeof(struct Env));
 
 
 	//////////////////////////////////////////////////////////////////////
@@ -191,7 +191,7 @@ mem_init(void)
 	// Your code goes here:
 	boot_map_region(kern_pgdir,
 	                (uintptr_t) UPAGES,
-	                (size_t) PTSIZE,
+	                ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE),
 	                PADDR(pages),
 	                PTE_U | PTE_P);
 
@@ -204,7 +204,7 @@ mem_init(void)
 	// LAB 3: Your code here.
 	boot_map_region(kern_pgdir,
 	                UENVS,
-	                sizeof(struct Env) * NENV,
+	                ROUNDUP(sizeof(struct Env) * NENV, PGSIZE),
 	                PADDR(envs),
 	                PTE_U | PTE_P);
 
@@ -539,23 +539,14 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
-	pte_t *pt_entry = pgdir_walk(pgdir, va, 0);
-
-	if (pt_entry) {
-		if (PTE_ADDR(*pt_entry) == page2pa(pp)) {
-			*pt_entry = page2pa(pp) | perm | PTE_P;
-			return 0;
-		}
-		page_remove(pgdir, va);
-	}
-
-	pt_entry = pgdir_walk(pgdir, va, 1);
-
-	if (!pt_entry) {
+	pte_t *pt_entry = pgdir_walk(pgdir, va, 1);
+	if (!pt_entry)
 		return -E_NO_MEM;
-	}
 
 	pp->pp_ref++;
+	if (*pt_entry & PTE_P)
+		page_remove(pgdir, va);
+
 	*pt_entry = page2pa(pp) | perm | PTE_P;
 
 	return 0;
@@ -705,16 +696,13 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 	uint32_t top = ROUNDUP((uint32_t) va + len, PGSIZE);
 
 	for (int i = base; i < top; i += PGSIZE) {
-		pte_t *entry = NULL;
-		if (!page_lookup(env->env_pgdir, (void *) i, &entry)) {
+		pte_t *entry = pgdir_walk(env->env_pgdir, (void *) i, 0);
+		// (1) the address is below ULIM, and (2) the page table gives it permission
+		if (i > ULIM || !(*entry & (perm | PTE_P))) {
 			if (i < (uint32_t) va)
 				user_mem_check_addr = (uintptr_t) va;
 			else
 				user_mem_check_addr = (uintptr_t) i;
-			return -E_FAULT;
-		}
-		if (!(*entry & perm)) {
-			user_mem_check_addr = (uintptr_t) va;
 			return -E_FAULT;
 		}
 	}

@@ -292,10 +292,10 @@ region_alloc(struct Env *e, void *va, size_t len)
 
 	for (void *i = base; i < top; i += PGSIZE) {
 		struct PageInfo *p = page_alloc(0);
-		if (!p) {
+		if (!p)
 			panic("No se pudo reservar una pagina");
-		}
-		page_insert(e->env_pgdir, p, i, PTE_W | PTE_U);
+		if (page_insert(e->env_pgdir, p, i, PTE_W | PTE_U))
+			panic("page_insert");
 	}
 }
 
@@ -405,6 +405,8 @@ env_create(uint8_t *binary, enum EnvType type)
 	// If this is the file server (type == ENV_TYPE_FS) give it I/O
 	// privileges.
 	// LAB 5: Your code here.
+	if (type == ENV_TYPE_FS)
+		e->env_tf.tf_eflags |= FL_IOPL_3;
 }
 
 //
@@ -535,14 +537,6 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-	if (curenv != NULL && curenv->env_status == ENV_RUNNING) {
-		curenv->env_status = ENV_RUNNABLE;
-	}
-
-	curenv = e;
-	e->env_status = ENV_RUNNING;
-	e->env_runs++;
-	lcr3(PADDR(e->env_pgdir));
 
 	// 1.
 	if (curenv) {
